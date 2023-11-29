@@ -94,15 +94,11 @@ def pick_existant_file(ntoption,nonntoption):
     if os.name == 'nt':
         if not ntexist and precompiled_ntexist:
             return (precompiled_prefix+ntoption)
-        if nonntexist and not ntexist:
-            return nonntoption
-        return ntoption
+        return nonntoption if nonntexist and not ntexist else ntoption
     else:
         if not nonntexist and precompiled_nonntexist:
             return (precompiled_prefix+nonntoption)
-        if ntexist and not nonntexist:
-            return ntoption
-        return nonntoption
+        return ntoption if ntexist and not nonntexist else nonntoption
 
 lib_default = pick_existant_file("koboldcpp_default.dll","koboldcpp_default.so")
 lib_failsafe = pick_existant_file("koboldcpp_failsafe.dll","koboldcpp_failsafe.so")
@@ -133,14 +129,13 @@ def init_library():
             else:
                 print("Attempting to use NoAVX2 CLBlast library for faster prompt ingestion. A compatible clblast will be required.")
                 use_clblast = True
+        elif not file_exists(lib_noavx2):
+            print("Warning: NoAVX2 library file not found. Failsafe library will be used.")
+        elif (args.noblas and args.nommap):
+            use_failsafe = True
+            print("!!! Attempting to use FAILSAFE MODE !!!")
         else:
-            if not file_exists(lib_noavx2):
-                print("Warning: NoAVX2 library file not found. Failsafe library will be used.")
-            elif (args.noblas and args.nommap):
-                use_failsafe = True
-                print("!!! Attempting to use FAILSAFE MODE !!!")
-            else:
-                print("Attempting to use non-avx2 compatibility library.")
+            print("Attempting to use non-avx2 compatibility library.")
     elif args.useclblast:
         if not file_exists(lib_clblast) or (os.name=='nt' and not file_exists("clblast.dll")):
             print("Warning: CLBlast library file not found. Non-BLAS library will be used.")
@@ -148,9 +143,7 @@ def init_library():
             print("Attempting to use CLBlast library for faster prompt ingestion. A compatible clblast will be required.")
             use_clblast = True
     elif (args.usecublas is not None):
-        if not file_exists(lib_cublas) and not file_exists(lib_hipblas):
-            print("Warning: CuBLAS library file not found. Non-BLAS library will be used.")
-        else:
+        if file_exists(lib_cublas):
             if file_exists(lib_cublas):
                 print("Attempting to use CuBLAS library for faster prompt ingestion. A compatible CuBLAS will be required.")
                 use_cublas = True
@@ -158,16 +151,25 @@ def init_library():
                 print("Attempting to use hipBLAS library for faster prompt ingestion. A compatible AMD GPU will be required.")
                 use_hipblas = True
 
-    else:
-        if not file_exists(lib_openblas) or (os.name=='nt' and not file_exists("libopenblas.dll")):
-            print("Warning: OpenBLAS library file not found. Non-BLAS library will be used.")
-        elif args.noblas:
-            print("Attempting to library without OpenBLAS.")
+        elif file_exists(lib_hipblas):
+            if file_exists(lib_cublas):
+                print("Attempting to use CuBLAS library for faster prompt ingestion. A compatible CuBLAS will be required.")
+                use_cublas = True
+            elif file_exists(lib_hipblas):
+                print("Attempting to use hipBLAS library for faster prompt ingestion. A compatible AMD GPU will be required.")
+                use_hipblas = True
+
         else:
-            use_openblas = True
-            print("Attempting to use OpenBLAS library for faster prompt ingestion. A compatible libopenblas will be required.")
-            if sys.platform=="darwin":
-                print("Mac OSX note: Some people have found Accelerate actually faster than OpenBLAS. To compare, run Koboldcpp with --noblas instead.")
+            print("Warning: CuBLAS library file not found. Non-BLAS library will be used.")
+    elif not file_exists(lib_openblas) or (os.name=='nt' and not file_exists("libopenblas.dll")):
+        print("Warning: OpenBLAS library file not found. Non-BLAS library will be used.")
+    elif args.noblas:
+        print("Attempting to library without OpenBLAS.")
+    else:
+        use_openblas = True
+        print("Attempting to use OpenBLAS library for faster prompt ingestion. A compatible libopenblas will be required.")
+        if sys.platform=="darwin":
+            print("Mac OSX note: Some people have found Accelerate actually faster than OpenBLAS. To compare, run Koboldcpp with --noblas instead.")
 
     if use_noavx2:
         if use_failsafe:
@@ -188,7 +190,7 @@ def init_library():
         else:
             libname = lib_default
 
-    print("Initializing dynamic library: " + libname)
+    print(f"Initializing dynamic library: {libname}")
     dir_path = getdirpath()
     abs_path = getabspath()
 

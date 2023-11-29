@@ -315,11 +315,12 @@ class BpeVocab:
                 added_tokens = {}
             else:
                 tokenizer_json = json.load(open(tokenizer_json_file, encoding="utf-8"))
-                added_tokens = dict(
-                    (item['content'], item['id'])
+                added_tokens = {
+                    item['content']: item['id']
                     for item in tokenizer_json.get('added_tokens', [])
                     # Added tokens here can be duplicates of the main vocabulary.
-                    if item['content'] not in self.bpe_tokenizer)
+                    if item['content'] not in self.bpe_tokenizer
+                }
 
         vocab_size: int = len(self.bpe_tokenizer)
         expected_ids    = list(range(vocab_size, vocab_size + len(added_tokens)))
@@ -343,8 +344,8 @@ class BpeVocab:
             yield reverse_vocab[i], 0.0, gguf.TokenType.NORMAL
 
     def added_tokens(self) -> Iterable[tuple[bytes, float, gguf.TokenType]]:
+        score = -1000.0
         for text in self.added_tokens_list:
-            score = -1000.0
             yield text.encode("utf-8"), score, gguf.TokenType.CONTROL
 
     def all_tokens(self) -> Iterable[tuple[bytes, float, gguf.TokenType]]:
@@ -405,8 +406,8 @@ class SentencePieceVocab:
             yield text, score, toktype
 
     def added_tokens(self) -> Iterable[tuple[bytes, float, gguf.TokenType]]:
+        score = -1000.0
         for text in self.added_tokens_list:
-            score = -1000.0
             yield text.encode("utf-8"), score, gguf.TokenType.USER_DEFINED
 
     def all_tokens(self) -> Iterable[tuple[bytes, float, gguf.TokenType]]:
@@ -573,7 +574,7 @@ def merge_sharded(models: list[LazyModel]) -> LazyModel:
 
 
 def merge_multifile_models(models_plus: list[ModelPlus]) -> ModelPlus:
-    formats = set(mp.format for mp in models_plus)
+    formats = {mp.format for mp in models_plus}
     assert len(formats) == 1, "different formats?"
     format = formats.pop()
     paths = [path for mp in models_plus for path in mp.paths]
@@ -598,23 +599,38 @@ def merge_multifile_models(models_plus: list[ModelPlus]) -> ModelPlus:
 def permute_lazy(lazy_tensor: LazyTensor, n_head: int, n_head_kv: int) -> LazyTensor:
     def load() -> Tensor:
         return lazy_tensor.load().permute(n_head, n_head_kv)
-    return LazyTensor(load, lazy_tensor.shape, lazy_tensor.data_type, f'permute({n_head}, {n_head_kv}) ' + lazy_tensor.description)
+
+    return LazyTensor(
+        load,
+        lazy_tensor.shape,
+        lazy_tensor.data_type,
+        f'permute({n_head}, {n_head_kv}) {lazy_tensor.description}',
+    )
 
 
 def permute_part_lazy(lazy_tensor: LazyTensor, n_part: int, n_head: int, n_head_kv: int) -> LazyTensor:
     def load() -> Tensor:
         return lazy_tensor.load().permute_part(n_part, n_head, n_head_kv)
+
     s = lazy_tensor.shape.copy()
     s[0] = s[0] // 3
-    return LazyTensor(load, s, lazy_tensor.data_type, f'permute({n_head}, {n_head_kv}) ' + lazy_tensor.description)
+    return LazyTensor(
+        load,
+        s,
+        lazy_tensor.data_type,
+        f'permute({n_head}, {n_head_kv}) {lazy_tensor.description}',
+    )
 
 
 def part_lazy(lazy_tensor: LazyTensor, n_part: int) -> LazyTensor:
     def load() -> Tensor:
         return lazy_tensor.load().part(n_part)
+
     s = lazy_tensor.shape.copy()
     s[0] = s[0] // 3
-    return LazyTensor(load, s, lazy_tensor.data_type, 'part ' + lazy_tensor.description)
+    return LazyTensor(
+        load, s, lazy_tensor.data_type, f'part {lazy_tensor.description}'
+    )
 
 
 # Functionality that simulates `torch.load` but where individual tensors are
@@ -795,20 +811,21 @@ def bounded_parallel_map(func: Callable[[In], Out], iterable: Iterable[In], conc
 
 
 def check_vocab_size(params: Params, vocab: Vocab) -> None:
-    if params.n_vocab != vocab.vocab_size:
-        assert isinstance(vocab, BpeVocab) or isinstance(vocab, SentencePieceVocab)
-        if params.n_vocab == vocab.vocab_size_base:
-            print("Ignoring added_tokens.json since model matches vocab size without it.")
-            vocab.added_tokens_list = []
-            vocab.vocab_size = vocab.vocab_size_base
-            return
-        msg = f"Vocab size mismatch (model has {params.n_vocab}, but {vocab.fname_tokenizer}"
-        if vocab.fname_added_tokens is not None:
-            msg += f" combined with {vocab.fname_added_tokens}"
-        msg += f" has {vocab.vocab_size})."
-        if vocab.vocab_size < params.n_vocab < vocab.vocab_size + 20 and vocab.fname_added_tokens is None:
-            msg += f"  Most likely you are missing added_tokens.json (should be in {vocab.fname_tokenizer.parent})."
-        raise Exception(msg)
+    if params.n_vocab == vocab.vocab_size:
+        return
+    assert isinstance(vocab, (BpeVocab, SentencePieceVocab))
+    if params.n_vocab == vocab.vocab_size_base:
+        print("Ignoring added_tokens.json since model matches vocab size without it.")
+        vocab.added_tokens_list = []
+        vocab.vocab_size = vocab.vocab_size_base
+        return
+    msg = f"Vocab size mismatch (model has {params.n_vocab}, but {vocab.fname_tokenizer}"
+    if vocab.fname_added_tokens is not None:
+        msg += f" combined with {vocab.fname_added_tokens}"
+    msg += f" has {vocab.vocab_size})."
+    if vocab.vocab_size < params.n_vocab < vocab.vocab_size + 20 and vocab.fname_added_tokens is None:
+        msg += f"  Most likely you are missing added_tokens.json (should be in {vocab.fname_tokenizer.parent})."
+    raise Exception(msg)
 
 
 class OutputFile:
@@ -915,9 +932,7 @@ class OutputFile:
     @staticmethod
     def maybe_do_quantize(item: tuple[DataType, NDArray]) -> NDArray:
         dt, arr = item
-        if not isinstance(dt, QuantizedDataType):
-            return arr
-        return dt.quantize(arr)
+        return arr if not isinstance(dt, QuantizedDataType) else dt.quantize(arr)
 
     @staticmethod
     def write_all(fname_out: Path, ftype: GGMLFileType, params: Params, model: LazyModel, vocab: Vocab, svocab: gguf.SpecialVocab, concurrency: int = DEFAULT_CONCURRENCY, endianess: gguf.GGUFEndian = gguf.GGUFEndian.LITTLE) -> None:
@@ -956,7 +971,9 @@ class OutputFile:
 
 
 def pick_output_type(model: LazyModel, output_type_str: str | None) -> GGMLFileType:
-    wq_type = model[gguf.TENSOR_NAMES[gguf.MODEL_TENSOR.ATTN_Q].format(bid=0) +".weight"].data_type
+    wq_type = model[
+        f"{gguf.TENSOR_NAMES[gguf.MODEL_TENSOR.ATTN_Q].format(bid=0)}.weight"
+    ].data_type
 
     if output_type_str == "f32" or (output_type_str is None and wq_type == DT_F32):
         return GGMLFileType.AllF32
@@ -1044,12 +1061,7 @@ def find_multifile_paths(path: Path) -> list[Path]:
         if nth_path is None:
             break
         ret.append(nth_path)
-    if not ret:
-        # No matches.  This should only happen if the file was named, e.g.,
-        # foo.0, and there was no file named foo.  Oh well, try to process it
-        # as a single file.
-        return [path]
-    return ret
+    return [path] if not ret else ret
 
 
 def load_some_model(path: Path) -> ModelPlus:
@@ -1075,8 +1087,7 @@ def load_some_model(path: Path) -> ModelPlus:
         print(f"Loading model file {path}")
         models_plus.append(lazy_load_file(path))
 
-    model_plus = merge_multifile_models(models_plus)
-    return model_plus
+    return merge_multifile_models(models_plus)
 
 
 def load_vocab(path: Path, vocabtype: str | None) -> Vocab:
@@ -1084,9 +1095,7 @@ def load_vocab(path: Path, vocabtype: str | None) -> Vocab:
     # a directory, it might be the model directory, and tokenizer.model might
     # be in the parent of that.
     if path.is_dir():
-        vocab_file = "tokenizer.model"
-        if vocabtype == 'bpe':
-            vocab_file = "vocab.json"
+        vocab_file = "vocab.json" if vocabtype == 'bpe' else "tokenizer.model"
         path2 = path / vocab_file
         # Use `.parent` instead of /.. to handle the symlink case better.
         path3 = path.parent / vocab_file
@@ -1165,10 +1174,7 @@ def main(args_in: list[str] | None = None) -> None:
     if args.dump:
         do_dump_model(model_plus)
         return
-    endianess = gguf.GGUFEndian.LITTLE
-    if args.bigendian:
-        endianess = gguf.GGUFEndian.BIG
-
+    endianess = gguf.GGUFEndian.BIG if args.bigendian else gguf.GGUFEndian.LITTLE
     params = Params.load(model_plus)
     if params.n_ctx == -1:
         if args.ctx is None:

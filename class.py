@@ -69,151 +69,170 @@ class model_backend(InferenceModel):
         foundfiles = [filename for filename in files if (("ggml" in filename.lower() and ".bin" in filename.lower()) or ".gguf" in filename.lower())]
 
         requested_parameters = []
-        foldermdls = []
-        for ff in foundfiles:
-            foldermdls.append({'text': ff, 'value': os.path.join(model_path, ff)})
-        requested_parameters.append({
-                                    "uitype": "dropdown",
-                                    "unit": "string",
-                                    "label": "GGML DataFile Name",
-                                    "id": "kcpp_filename",
-                                    "default": os.path.join(model_path, foundfiles[0]) if len(foundfiles)>0 else model_name,
-                                    "check": {"value": "", 'check': "!="},
-                                    "tooltip": "Actual GGML DataFile Name",
-                                    "menu_path": "",
-                                    "refresh_model_inputs": False,
-                                    "extra_classes": "",
-                                    'children': foldermdls
-                                    })
-        requested_parameters.append({
-                                    "uitype": "dropdown",
-                                    "unit": "int",
-                                    "label": "KoboldCpp Accelerator",
-                                    "id": "kcpp_accelerator",
-                                    "default": 0,
-                                    "check": {"value": "", 'check': "!="},
-                                    'multiple': False,
-                                    "tooltip": "KoboldCpp Accelerator",
-                                    "menu_path": "",
-                                    "refresh_model_inputs": False,
-                                    "extra_classes": "",
-                                    'children': [{'text': 'Use No BLAS', 'value': 0}, {'text': 'Use OpenBLAS', 'value': 1}, {'text': 'Use CuBLAS', 'value': 2},
-                                    {'text': 'Use CLBLast GPU #1', 'value': 3},{'text': 'Use CLBLast GPU #2', 'value': 4},{'text': 'Use CLBLast GPU #3', 'value': 5}
-                                    ,{'text': 'NoAVX2 Mode (Old CPU)', 'value': 6},{'text': 'Failsafe Mode (Old CPU)', 'value': 7}],
-                                    })
-        requested_parameters.append({
-                                    "uitype": "text",
-                                    "unit": "int",
-                                    "label": "Threads",
-                                    "id": "kcpp_threads",
-                                    "default": self.kcpp_threads,
-                                    "check": {"value": "", 'check': "!="},
-                                    "tooltip": "Thread Count",
-                                    "menu_path": "",
-                                    "refresh_model_inputs": False,
-                                    "extra_classes": ""
-                                    })
-
-        requested_parameters.append({
-                                    "uitype": "text",
-                                    "unit": "int",
-                                    "label": "Max Context Size",
-                                    "id": "kcpp_ctxsize",
-                                    "default": self.kcpp_ctxsize,
-                                    "check": {"value": "", 'check': "!="},
-                                    "tooltip": "Max Context Size",
-                                    "menu_path": "",
-                                    "refresh_model_inputs": False,
-                                    "extra_classes": ""
-                                    })
-        requested_parameters.append({
-                                    "uitype": "text",
-                                    "unit": "int",
-                                    "label": "BLAS Batch Size",
-                                    "id": "kcpp_blasbatchsize",
-                                    "default": self.kcpp_blasbatchsize,
-                                    "check": {"value": "", 'check': "!="},
-                                    "tooltip": "BLAS Batch Size",
-                                    "menu_path": "",
-                                    "refresh_model_inputs": False,
-                                    "extra_classes": ""
-                                    })
-        requested_parameters.append({
-                                    "uitype": "text",
-                                    "unit": "int",
-                                    "label": "GPU Layers",
-                                    "id": "kcpp_gpulayers",
-                                    "default": self.kcpp_gpulayers,
-                                    "check": {"value": "", 'check': "!="},
-                                    "tooltip": "GPU Layers",
-                                    "menu_path": "",
-                                    "refresh_model_inputs": False,
-                                    "extra_classes": ""
-                                    })
-        requested_parameters.append({
-                                    "uitype": "text",
-                                    "unit": "int",
-                                    "label": "Rope Scale",
-                                    "id": "kcpp_ropescale",
-                                    "default": self.kcpp_ropescale,
-                                    "check": {"value": "", 'check': "!="},
-                                    "tooltip": "Rope Scale",
-                                    "menu_path": "",
-                                    "refresh_model_inputs": False,
-                                    "extra_classes": ""
-                                    })
-        requested_parameters.append({
-                                    "uitype": "text",
-                                    "unit": "int",
-                                    "label": "Rope Base",
-                                    "id": "kcpp_ropebase",
-                                    "default": self.kcpp_ropebase,
-                                    "check": {"value": "", 'check': "!="},
-                                    "tooltip": "Rope Base",
-                                    "menu_path": "",
-                                    "refresh_model_inputs": False,
-                                    "extra_classes": ""
-                                    })
-        requested_parameters.append({
-                                    "uitype": "dropdown",
-                                    "unit": "int",
-                                    "label": "Smart Context",
-                                    "id": "kcpp_smartcontext",
-                                    "default": self.kcpp_smartcontext,
-                                    "check": {"value": "", 'check': "!="},
-                                    'multiple': False,
-                                    "tooltip": "Smart Context",
-                                    "menu_path": "",
-                                    "refresh_model_inputs": False,
-                                    "extra_classes": "",
-                                    'children': [{'text': 'False', 'value': False}, {'text': 'True', 'value': True}],
-                                    })
-        requested_parameters.append({
-                                    "uitype": "text",
-                                    "unit": "text",
-                                    "label": "GPU ID",
-                                    "id": "kcpp_tensor_split_str",
-                                    "default": "1",
-                                    "check": {"value": "", 'check': "!="},
-                                    "tooltip": "Which GPU's do we use? For example:1 2",
-                                    "menu_path": "",
-                                    "refresh_model_inputs": False,
-                                    "extra_classes": ""
-                                    })
-        requested_parameters.append({
-                                    "uitype": "dropdown",
-                                    "unit": "int",
-                                    "label": "Debug Mode",
-                                    "id": "kcpp_debugmode",
-                                    "default": self.kcpp_debugmode,
-                                    "check": {"value": "", 'check': "!="},
-                                    'multiple': False,
-                                    "tooltip": "Debug Mode",
-                                    "menu_path": "",
-                                    "refresh_model_inputs": False,
-                                    "extra_classes": "",
-                                    'children': [{'text': 'False', 'value': 0}, {'text': 'True', 'value': 1}],
-                                    })
+        foldermdls = [
+            {'text': ff, 'value': os.path.join(model_path, ff)}
+            for ff in foundfiles
+        ]
+        requested_parameters.extend(
+            (
+                {
+                    "uitype": "dropdown",
+                    "unit": "string",
+                    "label": "GGML DataFile Name",
+                    "id": "kcpp_filename",
+                    "default": os.path.join(model_path, foundfiles[0])
+                    if foundfiles
+                    else model_name,
+                    "check": {"value": "", 'check': "!="},
+                    "tooltip": "Actual GGML DataFile Name",
+                    "menu_path": "",
+                    "refresh_model_inputs": False,
+                    "extra_classes": "",
+                    'children': foldermdls,
+                },
+                {
+                    "uitype": "dropdown",
+                    "unit": "int",
+                    "label": "KoboldCpp Accelerator",
+                    "id": "kcpp_accelerator",
+                    "default": 0,
+                    "check": {"value": "", 'check': "!="},
+                    'multiple': False,
+                    "tooltip": "KoboldCpp Accelerator",
+                    "menu_path": "",
+                    "refresh_model_inputs": False,
+                    "extra_classes": "",
+                    'children': [
+                        {'text': 'Use No BLAS', 'value': 0},
+                        {'text': 'Use OpenBLAS', 'value': 1},
+                        {'text': 'Use CuBLAS', 'value': 2},
+                        {'text': 'Use CLBLast GPU #1', 'value': 3},
+                        {'text': 'Use CLBLast GPU #2', 'value': 4},
+                        {'text': 'Use CLBLast GPU #3', 'value': 5},
+                        {'text': 'NoAVX2 Mode (Old CPU)', 'value': 6},
+                        {'text': 'Failsafe Mode (Old CPU)', 'value': 7},
+                    ],
+                },
+                {
+                    "uitype": "text",
+                    "unit": "int",
+                    "label": "Threads",
+                    "id": "kcpp_threads",
+                    "default": self.kcpp_threads,
+                    "check": {"value": "", 'check': "!="},
+                    "tooltip": "Thread Count",
+                    "menu_path": "",
+                    "refresh_model_inputs": False,
+                    "extra_classes": "",
+                },
+                {
+                    "uitype": "text",
+                    "unit": "int",
+                    "label": "Max Context Size",
+                    "id": "kcpp_ctxsize",
+                    "default": self.kcpp_ctxsize,
+                    "check": {"value": "", 'check': "!="},
+                    "tooltip": "Max Context Size",
+                    "menu_path": "",
+                    "refresh_model_inputs": False,
+                    "extra_classes": "",
+                },
+                {
+                    "uitype": "text",
+                    "unit": "int",
+                    "label": "BLAS Batch Size",
+                    "id": "kcpp_blasbatchsize",
+                    "default": self.kcpp_blasbatchsize,
+                    "check": {"value": "", 'check': "!="},
+                    "tooltip": "BLAS Batch Size",
+                    "menu_path": "",
+                    "refresh_model_inputs": False,
+                    "extra_classes": "",
+                },
+                {
+                    "uitype": "text",
+                    "unit": "int",
+                    "label": "GPU Layers",
+                    "id": "kcpp_gpulayers",
+                    "default": self.kcpp_gpulayers,
+                    "check": {"value": "", 'check': "!="},
+                    "tooltip": "GPU Layers",
+                    "menu_path": "",
+                    "refresh_model_inputs": False,
+                    "extra_classes": "",
+                },
+                {
+                    "uitype": "text",
+                    "unit": "int",
+                    "label": "Rope Scale",
+                    "id": "kcpp_ropescale",
+                    "default": self.kcpp_ropescale,
+                    "check": {"value": "", 'check': "!="},
+                    "tooltip": "Rope Scale",
+                    "menu_path": "",
+                    "refresh_model_inputs": False,
+                    "extra_classes": "",
+                },
+                {
+                    "uitype": "text",
+                    "unit": "int",
+                    "label": "Rope Base",
+                    "id": "kcpp_ropebase",
+                    "default": self.kcpp_ropebase,
+                    "check": {"value": "", 'check': "!="},
+                    "tooltip": "Rope Base",
+                    "menu_path": "",
+                    "refresh_model_inputs": False,
+                    "extra_classes": "",
+                },
+                {
+                    "uitype": "dropdown",
+                    "unit": "int",
+                    "label": "Smart Context",
+                    "id": "kcpp_smartcontext",
+                    "default": self.kcpp_smartcontext,
+                    "check": {"value": "", 'check': "!="},
+                    'multiple': False,
+                    "tooltip": "Smart Context",
+                    "menu_path": "",
+                    "refresh_model_inputs": False,
+                    "extra_classes": "",
+                    'children': [
+                        {'text': 'False', 'value': False},
+                        {'text': 'True', 'value': True},
+                    ],
+                },
+                {
+                    "uitype": "text",
+                    "unit": "text",
+                    "label": "GPU ID",
+                    "id": "kcpp_tensor_split_str",
+                    "default": "1",
+                    "check": {"value": "", 'check': "!="},
+                    "tooltip": "Which GPU's do we use? For example:1 2",
+                    "menu_path": "",
+                    "refresh_model_inputs": False,
+                    "extra_classes": "",
+                },
+                {
+                    "uitype": "dropdown",
+                    "unit": "int",
+                    "label": "Debug Mode",
+                    "id": "kcpp_debugmode",
+                    "default": self.kcpp_debugmode,
+                    "check": {"value": "", 'check': "!="},
+                    'multiple': False,
+                    "tooltip": "Debug Mode",
+                    "menu_path": "",
+                    "refresh_model_inputs": False,
+                    "extra_classes": "",
+                    'children': [
+                        {'text': 'False', 'value': 0},
+                        {'text': 'True', 'value': 1},
+                    ],
+                },
+            )
+        )
         return requested_parameters
 
     def set_input_parameters(self, parameters):
@@ -235,32 +254,28 @@ class model_backend(InferenceModel):
                 print(self.kcpp_tensor_split)
 
         accel = parameters["kcpp_accelerator"]
-        if accel==0:
+        if accel == 0:
             self.kcpp_noblas = True
-        elif accel==1:
-           pass
-        elif accel==2:
+        elif accel == 2:
             self.kcpp_usecublas = ["normal"]
-        elif accel==3:
+        elif accel == 3:
             self.kcpp_useclblast = [0,0]
-        elif accel==4:
+        elif accel == 4:
             self.kcpp_useclblast = [1,0]
-        elif accel==5:
+        elif accel == 5:
             self.kcpp_useclblast = [0,1]
-        elif accel==6:
+        elif accel == 6:
             self.kcpp_noavx2 = True
-        elif accel==7:
+        elif accel == 7:
             self.kcpp_noavx2 = True
             self.kcpp_noblas = True
             self.kcpp_nommap = True
-        pass
 
     def unload(self):
         print("Attemping to unload library")
         koboldcpp.unload_libs()
         global kcpp_backend_loaded
         kcpp_backend_loaded = False
-        pass
 
     def _load(self, save_model: bool, initial_load: bool) -> None:
         global kcpp_backend_loaded
@@ -276,7 +291,6 @@ class model_backend(InferenceModel):
 
             koboldcpp.main(kcppargs,False) #initialize library without enabling Lite http server
             kcpp_backend_loaded = True
-        pass
 
     def _save_settings(self):
         pass
